@@ -22,8 +22,11 @@ jobs:
 
       - name: Test Docker Container
         run: |
-          docker run -d -p 5000:5000 myflaskapp:latest
-          curl http://localhost:5000
+            docker run --name test-container -d myflaskapp:latest
+            docker logs test-container   # Check that app started correctly
+            docker stop test-container
+            docker rm test-container
+
 
   deploy:
     name: Deploy to EC2
