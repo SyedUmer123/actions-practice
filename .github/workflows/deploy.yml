@@ -31,16 +31,45 @@ jobs:
   deploy:
     name: Deploy to EC2
     runs-on: ubuntu-latest
-    needs: build    # Runs only after build job completes successfully
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
       - name: SSH to EC2 and Deploy
         uses: appleboy/ssh-action@v0.1.8
         with:
-            host: ${{ secrets.EC2_HOST }}
-            username: ubuntu
-            key: ${{ secrets.EC2_SSH_KEY }}
-            script: |
-                docker stop myflaskapp || true
-                docker rm myflaskapp || true
-                docker run -d -p 5000:5000 myflaskapp:latest
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Navigate to deployment directory (create if doesn't exist)
+            mkdir -p ~/app
+            cd ~/app
+
+            # Pull the latest code from GitHub
+            git init || true
+            git remote add origin https://github.com/${{ github.repository }}.git || true
+            git fetch origin
+            git reset --hard origin/main
+
+            # Ensure Docker is installed
+            if ! command -v docker &> /dev/null; then
+              sudo apt-get update
+              sudo apt-get install -y docker.io
+              sudo systemctl enable docker
+              sudo systemctl start docker
+              sudo usermod -aG docker ubuntu
+            fi
+
+            # Build Docker image on EC2
+            docker build -t myflaskapp:latest .
+
+            # Stop and remove existing container
+            docker stop myflaskapp || true
+            docker rm myflaskapp || true
+
+            # Run new container
+            docker run -d -p 5000:5000 myflaskapp:latest
+
+
 
